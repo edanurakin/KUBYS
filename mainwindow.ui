@@ -18,7 +18,7 @@
     <item>
      <widget class="QTabWidget" name="tblKitaplar">
       <property name="currentIndex">
-       <number>1</number>
+       <number>0</number>
       </property>
       <widget class="QWidget" name="btnKitapEkle">
        <attribute name="title">
@@ -39,6 +39,30 @@
          <widget class="QPushButton" name="btnKitapEkle_2">
           <property name="text">
            <string>Yeni Kitap Kaydet</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="btnTopluKitapEkle">
+          <property name="text">
+           <string>CSV'den Toplu Kitap Aktar</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QProgressBar" name="progressBar">
+          <property name="value">
+           <number>24</number>
+          </property>
+          <property name="textVisible">
+           <bool>false</bool>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="btnTopluIptal">
+          <property name="text">
+           <string>Aktarımı İptal Et</string>
           </property>
          </widget>
         </item>

@@ -7,6 +7,8 @@
 #include "kitapmodel.h"
 #include "uyemodel.h"
 #include "oduncmodel.h"
+#include <mutex>
+#include "kitapyukleyici.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -37,6 +39,10 @@ private slots:
 
     void on_txtUyeAra_textChanged(const QString &arg1);
 
+    void on_btnTopluKitapEkle_clicked();
+
+    void on_btnTopluIptal_clicked();
+
 private:
     Ui::MainWindow *ui;
 
@@ -48,5 +54,8 @@ private:
     Depo<int, OduncKaydi> odunc_deposu;
     Depo<std::string, Kitap> kitap_deposu;
     void logYaz(const std::string &mesaj);
+    std::mutex kitapMutex;
+    KitapYukleyici* aktifYukleyici = nullptr;
+
 };
 #endif

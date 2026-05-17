@@ -15,14 +15,14 @@ class KitapEkleDialog : public QDialog
 public:
     explicit KitapEkleDialog(QWidget *parent = nullptr);
     ~KitapEkleDialog();
-
     Kitap getKitap() const;
 
 private slots:
-    void on_btnKaydet_clicked();
+    void on_buttonBox_accepted();
 
 private:
     Ui::KitapEkleDialog *ui;
+    Kitap yeniKitap;
 };
 
 #endif

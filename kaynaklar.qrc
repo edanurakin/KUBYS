@@ -1,0 +1,5 @@
+<RCC>
+    <qresource prefix="/">
+        <file>kitaplar.csv</file>
+    </qresource>
+</RCC>

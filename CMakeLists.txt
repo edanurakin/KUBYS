@@ -30,6 +30,8 @@ qt_add_executable(KUBYS
     oduncmodel.h oduncmodel.cpp
     oduncverdialog.h oduncverdialog.cpp oduncverdialog.ui
     .gitignore
+    kitapyukleyici.h kitapyukleyici.cpp
+    kaynaklar.qrc
 
 )
 

@@ -1,4 +1,4 @@
-
+#include <thread>
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 #include "kitapekledialog.h"
@@ -8,6 +8,10 @@
 #include <fstream>
 #include <chrono>
 #include <iomanip>
+#include <mutex>
+#include "kitapyukleyici.h"
+#include <sstream>
+#include <algorithm>
 
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWindow) {
     ui->setupUi(this);
@@ -136,6 +140,7 @@ void MainWindow::on_btnOduncVer_clicked()
         logYaz("KITAP ODUNC VERILDI - Kayit ID: " + std::to_string(yeniKayit.kayit_id) + ", Uye No: " + std::to_string(yeniKayit.uye_no) + ", ISBN: " + yeniKayit.isbn);
     }
 }
+
 void MainWindow::on_btnIadeAl_clicked()
 {
     QModelIndex index = ui->viewEmanetler->currentIndex();
@@ -181,7 +186,6 @@ void MainWindow::on_btnIadeAl_clicked()
     logYaz("KITAP IADE ALINDI - Kayit ID: " + std::to_string(secilenKayit.kayit_id) + ", ISBN: " + secilenKayit.isbn);
 }
 
-
 void MainWindow::on_txtKitapAra_textChanged(const QString &arg1)
 {
     std::string arananMetin = arg1.toLower().toStdString();
@@ -204,7 +208,6 @@ void MainWindow::on_txtKitapAra_textChanged(const QString &arg1)
 
     kitapModel->setKitaplar(filtrelenmisListe);
 }
-
 
 void MainWindow::on_txtUyeAra_textChanged(const QString &arg1)
 {
@@ -234,11 +237,69 @@ void MainWindow::logYaz(const std::string &mesaj)
     std::ofstream logDosyasi("islem_gunlugu.txt", std::ios::app);
     if (logDosyasi.is_open()) {
         auto simdi = std::chrono::system_clock::now();
-        auto zaman_t = std::chrono::system_clock::to_time_t(simdi);
         std::time_t t = std::chrono::system_clock::to_time_t(simdi);
 
         logDosyasi << std::put_time(std::localtime(&t), "[%Y-%m-%d %H:%M:%S] ")
                    << mesaj << std::endl;
         logDosyasi.close();
+    }
+}
+
+void MainWindow::on_btnTopluKitapEkle_clicked()
+{
+    ui->progressBar->setVisible(true);
+    ui->progressBar->setValue(0);
+    ui->btnTopluKitapEkle->setEnabled(false);
+    ui->btnTopluIptal->setEnabled(true);
+
+    aktifYukleyici = new KitapYukleyici(":/kitaplar.csv");
+
+    connect(aktifYukleyici, &KitapYukleyici::ilerlemeGuncellendi,
+            ui->progressBar, &QProgressBar::setValue);
+
+    int* yuklenenSayac = new int(0);
+
+    connect(aktifYukleyici, &KitapYukleyici::kitaplarHazir, this, [this, yuklenenSayac](const std::vector<Kitap>& yuklenenKitaplar) {
+        std::lock_guard<std::mutex> lock(kitapMutex);
+        *yuklenenSayac = yuklenenKitaplar.size();
+        for(const auto& kitap : yuklenenKitaplar) {
+            kitap_deposu.ekle(kitap.isbn, kitap);
+        }
+        kitap_deposu.kaydet("kitaplar.dat");
+        logYaz("THREAD: " + std::to_string(yuklenenKitaplar.size()) + " adet kitap arka planda toplu yuklendi.");
+    });
+
+    connect(aktifYukleyici, &KitapYukleyici::tamamlandi, this, [this, yuklenenSayac]() {
+        auto tumKitaplarMap = kitap_deposu.tumunu_al();
+        std::vector<Kitap> guncelListe;
+        for(auto const& [key, val] : tumKitaplarMap) {
+            guncelListe.push_back(val);
+        }
+        kitapModel->setKitaplar(guncelListe);
+
+        ui->progressBar->setVisible(false);
+        ui->btnTopluKitapEkle->setEnabled(true);
+        ui->btnTopluIptal->setEnabled(false);
+        if (*yuklenenSayac == 0) {
+            QMessageBox::warning(this, "Sistem Bilgisi", "Toplu aktarim iptal edildi veya dosya bos.");
+        } else {
+            QMessageBox::information(this, "Basarili", "Toplu kitap aktarimi tamamlandi!\nOkunan: " + QString::number(*yuklenenSayac));
+        }
+
+        delete yuklenenSayac;
+        aktifYukleyici->deleteLater();
+        aktifYukleyici = nullptr;
+    });
+
+    std::thread arkaPlanIzlegi(&KitapYukleyici::calis, aktifYukleyici);
+    arkaPlanIzlegi.detach();
+}
+
+void MainWindow::on_btnTopluIptal_clicked()
+{
+    if (aktifYukleyici != nullptr) {
+        aktifYukleyici->iptalEt();
+        ui->btnTopluIptal->setEnabled(false);
+        logYaz("THREAD: Kullanici toplu kitap aktarimini iptal etti.");
     }
 }

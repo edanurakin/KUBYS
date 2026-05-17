@@ -1,10 +1,15 @@
 #include "uyeekledialog.h"
 #include "ui_uyeekledialog.h"
 #include <QMessageBox>
-#include <QDateTime>
+#include <QRegularExpressionValidator>
+#include <QDate>
+
 UyeEkleDialog::UyeEkleDialog(QWidget *parent) : QDialog(parent), ui(new Ui::UyeEkleDialog) {
     ui->setupUi(this);
-    this->setWindowTitle("Yeni Üye Kaydı");
+
+    QRegularExpression telRegex("^[0-9]{10}$");
+    QRegularExpressionValidator *telValidator = new QRegularExpressionValidator(telRegex, this);
+    ui->txtTelefon->setValidator(telValidator);
 }
 
 UyeEkleDialog::~UyeEkleDialog() {
@@ -12,24 +17,27 @@ UyeEkleDialog::~UyeEkleDialog() {
 }
 
 void UyeEkleDialog::on_btnKaydet_clicked() {
-    if(ui->txtUyeNo->text().isEmpty() || ui->txtIsim->text().isEmpty() ||
-        ui->txtSoyisim->text().isEmpty() || ui->txtTelefon->text().isEmpty()) {
-        QMessageBox::warning(this, "Hata", "Lütfen tüm üye bilgilerini doldurunuz!");
+    int uyeNo = ui->txtUyeNo->text().trimmed().toInt();
+    QString isim = ui->txtIsim->text().trimmed();
+    QString soyisim = ui->txtSoyisim->text().trimmed();
+    QString telefon = ui->txtTelefon->text().trimmed();
+
+    if (isim.isEmpty() || soyisim.isEmpty() || telefon.length() != 10) {
+        QMessageBox::warning(this, "Eksik Bilgi", "Lutfen isim, soyisim, 10 haneli telefon numarasini eksiksiz girin!");
         return;
     }
+
+    QString otomatikTarih = QDate::currentDate().toString("yyyy-MM-dd");
+
+    yeniUye.uye_no = uyeNo;
+    yeniUye.isim = isim.toStdString();
+    yeniUye.soyisim = soyisim.toStdString();
+    yeniUye.telefon = telefon.toStdString();
+    yeniUye.kayit_tarihi = otomatikTarih.toStdString();
+
     accept();
 }
 
-void UyeEkleDialog::on_btnIptal_clicked() {
-    reject();
-}
-
 Uye UyeEkleDialog::getUye() const {
-    Uye u;
-    u.uye_no = ui->txtUyeNo->text().toInt();
-    u.isim = ui->txtIsim->text().toStdString();
-    u.soyisim = ui->txtSoyisim->text().toStdString();
-    u.telefon = ui->txtTelefon->text().toStdString();
-    u.kayit_tarihi = QDateTime::currentDateTime().toString("dd.MM.yyyy").toStdString();
-    return u;
+    return yeniUye;
 }

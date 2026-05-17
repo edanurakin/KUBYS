@@ -1,45 +1,43 @@
-#include <QMessageBox>
 #include "kitapekledialog.h"
 #include "ui_kitapekledialog.h"
+#include <QMessageBox>
+#include <QRegularExpressionValidator>
 
-KitapEkleDialog::KitapEkleDialog(QWidget *parent)
-    : QDialog(parent)
-    , ui(new Ui::KitapEkleDialog)
-{
+KitapEkleDialog::KitapEkleDialog(QWidget *parent) : QDialog(parent), ui(new Ui::KitapEkleDialog) {
     ui->setupUi(this);
+
+    QRegularExpression isbnRegex("^[0-8][0-9]{12}$");
+    QRegularExpressionValidator *isbnValidator = new QRegularExpressionValidator(isbnRegex, this);
+    ui->txtIsbn->setValidator(isbnValidator);
 }
 
-KitapEkleDialog::~KitapEkleDialog()
-{
+KitapEkleDialog::~KitapEkleDialog() {
     delete ui;
 }
 
-void KitapEkleDialog::on_btnKaydet_clicked()
-{
-    if(ui->txtIsbn->text().isEmpty() ||
-        ui->txtKitapAdi->text().isEmpty() ||
-        ui->txtYazar->text().isEmpty() ||
-        ui->label_5->text().isEmpty())
-    {
-        QMessageBox::warning(this, "Eksik Bilgi", "Lütfen boş alanları doldurunuz!");
+void KitapEkleDialog::on_buttonBox_accepted() {
+    QString isbn = ui->txtIsbn->text().trimmed();
+    QString baslik = ui->txtKitapAdi->text().trimmed();
+    QString yazar = ui->txtYazar->text().trimmed();
+    QString kategori = ui->txtKategori->text().trimmed();
+    int yil = ui->spinYil->value();
+    int kopya = ui->txtKopyaSayisi->text().trimmed().toInt();
+
+    if (isbn.length() != 13 || baslik.isEmpty() || yazar.isEmpty() || kategori.isEmpty()) {
+        QMessageBox::warning(this, "Eksik Bilgi", "Lutfen 13 haneli ISBN numarasini ve tum zorunlu alanlari doldurun!");
         return;
     }
 
-    if(ui->txtIsbn->text().length() < 10) {
-        QMessageBox::warning(this, "Hatalı Format", "ISBN en az 10 karakter olmalıdır!");
-        return;
-    }
+    yeniKitap.isbn = isbn.toStdString();
+    yeniKitap.baslik = baslik.toStdString();
+    yeniKitap.yazar = yazar.toStdString();
+    yeniKitap.kategori = kategori.toStdString();
+    yeniKitap.yayin_yili = yil;
+    yeniKitap.kopya_sayisi = kopya;
 
     accept();
 }
 
 Kitap KitapEkleDialog::getKitap() const {
-    Kitap k;
-    k.isbn = ui->txtIsbn->text().toStdString();
-    k.baslik = ui->txtKitapAdi->text().toStdString();
-    k.yazar = ui->txtYazar->text().toStdString();
-    k.kategori = ui->txtKategori->text().toStdString();
-    k.yayin_yili = ui->spinYil->value();
-    k.kopya_sayisi = ui->txtKopyaSayisi->text().toInt();
-    return k;
+    return yeniKitap;
 }

@@ -14,21 +14,31 @@ int UyeModel::columnCount(const QModelIndex &parent) const {
     return 5;
 }
 
-QVariant UyeModel::data(const QModelIndex &index, int role) const {
-    if (!index.isValid() || role != Qt::DisplayRole) return QVariant();
+QVariant UyeModel::data(const QModelIndex &index, int role) const
+{
+    if (!index.isValid() || index.row() >= m_uyeler.size()) {
+        return QVariant();
+    }
 
-    const auto& uye = m_uyeler[index.row()];
-
-    switch (index.column()) {
-    case 0: return uye.uye_no;
-    case 1: return QString::fromStdString(uye.isim);
-    case 2: return QString::fromStdString(uye.soyisim);
-    case 3: return QString::fromStdString(uye.telefon);
-    case 4: return QString::fromStdString(uye.kayit_tarihi);
+    if (role == Qt::DisplayRole) {
+        const auto &uye = m_uyeler[index.row()];
+        switch (index.column()) {
+        case 0:
+            return uye.uye_no;
+        case 1:
+            return QString::fromStdString(uye.isim);
+        case 2:
+            return QString::fromStdString(uye.soyisim);
+        case 3:
+            return QString::fromStdString(uye.telefon);
+        case 4:
+            return QString::fromStdString(uye.kayit_tarihi);
+        default:
+            return QVariant();
+        }
     }
     return QVariant();
 }
-
 QVariant UyeModel::headerData(int section, Qt::Orientation orientation, int role) const {
     if (role != Qt::DisplayRole) return QVariant();
 
