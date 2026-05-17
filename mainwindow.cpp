@@ -47,6 +47,15 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
         liste.push_back(veri);
     }
     oduncModel->setKayitlar(liste);
+
+    try {
+        kitap_deposu.yukle("kitaplar.dat");
+        uye_deposu.yukle("uyeler.dat");
+    }
+    catch (const std::exception& e) {
+        QMessageBox::warning(this, "Veri Yukleme Hatasi", "Eski veriler yuklenirken bir sorun olustu, temiz veri tabani ile baslatiliyor.");
+        logYaz("HATA: Veritabanı acilamadi: " + std::string(e.what()));
+    }
 }
 
 MainWindow::~MainWindow() {
@@ -59,20 +68,26 @@ MainWindow::~MainWindow() {
 void MainWindow::on_btnUyeEkle_clicked()
 {
     UyeEkleDialog dialog(this);
-
     if (dialog.exec() == QDialog::Accepted) {
         Uye yeniUye = dialog.getUye();
 
-        uye_deposu.ekle(yeniUye.uye_no, yeniUye);
+        try {
+            uye_deposu.ekle(yeniUye.uye_no, yeniUye);
+            uye_deposu.kaydet("uyeler.dat");
 
-        auto tumUyelerMap = uye_deposu.tumunu_al();
-        std::vector<Uye> uyeListesi;
-        for(auto const& [key, val] : tumUyelerMap) {
-            uyeListesi.push_back(val);
+            auto tumUyelerMap = uye_deposu.tumunu_al();
+            std::vector<Uye> guncelListe;
+            for(auto const& [key, val] : tumUyelerMap) {
+                guncelListe.push_back(val);
+            }
+            uyeModel->setUyeler(guncelListe);
+
+            logYaz("SISTEM: " + yeniUye.isim + " " + yeniUye.soyisim + " isimli uye basariyla eklendi.");
         }
-
-        uyeModel->setUyeler(uyeListesi);
-        logYaz("YENI UYE EKLENDI - Uye No: " + std::to_string(yeniUye.uye_no) + ", Isim: " + yeniUye.isim + " " + yeniUye.soyisim);
+        catch (const std::exception& e) {
+            QMessageBox::critical(this, "Hata", "Uye kaydedilirken bir hata olustu: " + QString::fromUtf8(e.what()));
+            logYaz("HATA: Uye ekleme basarisiz: " + std::string(e.what()));
+        }
     }
 }
 
@@ -82,16 +97,24 @@ void MainWindow::on_btnKitapEkle_2_clicked()
     if (dialog.exec() == QDialog::Accepted) {
         Kitap yeniKitap = dialog.getKitap();
 
-        kitap_deposu.ekle(yeniKitap.isbn, yeniKitap);
+        try {
+            std::lock_guard<std::mutex> lock(kitapMutex);
+            kitap_deposu.ekle(yeniKitap.isbn, yeniKitap);
+            kitap_deposu.kaydet("kitaplar.dat");
 
-        auto tumKitaplarMap = kitap_deposu.tumunu_al();
-        std::vector<Kitap> kitapListesi;
-        for(auto const& [key, val] : tumKitaplarMap) {
-            kitapListesi.push_back(val);
+            auto tumKitaplarMap = kitap_deposu.tumunu_al();
+            std::vector<Kitap> guncelListe;
+            for(auto const& [key, val] : tumKitaplarMap) {
+                guncelListe.push_back(val);
+            }
+            kitapModel->setKitaplar(guncelListe);
+
+            logYaz("SISTEM: " + yeniKitap.baslik + " isimli kitap basariyla eklendi.");
         }
-
-        kitapModel->setKitaplar(kitapListesi);
-        logYaz("YENI KITAP EKLENDI - ISBN: " + yeniKitap.isbn + ", Baslik: " + yeniKitap.baslik);
+        catch (const std::exception& e) {
+            QMessageBox::critical(this, "Hata", "Kitap kaydedilirken bir hata olustu: " + QString::fromUtf8(e.what()));
+            logYaz("HATA: Kitap ekleme basarisiz: " + std::string(e.what()));
+        }
     }
 }
 
