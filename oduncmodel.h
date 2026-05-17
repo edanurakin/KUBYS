@@ -16,6 +16,7 @@ public:
     QVariant headerData(int section, Qt::Orientation orientation, int role = Qt::DisplayRole) const override;
 
     void setKayitlar(const std::vector<OduncKaydi>& yeniKayitlar);
+    void setOduncler(const std::vector<OduncKaydi>& kayitlar);
 
 private:
     std::vector<OduncKaydi> m_kayitlar;

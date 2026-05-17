@@ -21,18 +21,12 @@
      </property>
     </widget>
    </item>
-   <item row="0" column="1">
-    <widget class="QLineEdit" name="txtKayitId"/>
-   </item>
    <item row="1" column="0">
     <widget class="QLabel" name="label_2">
      <property name="text">
       <string>Üye No:</string>
      </property>
     </widget>
-   </item>
-   <item row="1" column="1">
-    <widget class="QLineEdit" name="txtUyeNo"/>
    </item>
    <item row="2" column="0">
     <widget class="QLabel" name="label_3">
@@ -41,18 +35,12 @@
      </property>
     </widget>
    </item>
-   <item row="2" column="1">
-    <widget class="QLineEdit" name="txtIsbn"/>
-   </item>
    <item row="3" column="0">
     <widget class="QLabel" name="label_4">
      <property name="text">
       <string>Ödünç Tarihi:</string>
      </property>
     </widget>
-   </item>
-   <item row="3" column="1">
-    <widget class="QLineEdit" name="txtOduncTarihi"/>
    </item>
    <item row="4" column="1">
     <widget class="QPushButton" name="btnKaydet">
@@ -67,6 +55,18 @@
       <string>İptal</string>
      </property>
     </widget>
+   </item>
+   <item row="0" column="1">
+    <widget class="QLineEdit" name="txtKayitId"/>
+   </item>
+   <item row="1" column="1">
+    <widget class="QComboBox" name="cmbUye"/>
+   </item>
+   <item row="2" column="1">
+    <widget class="QComboBox" name="cmbKitap"/>
+   </item>
+   <item row="3" column="1">
+    <widget class="QDateEdit" name="dateOdunc"/>
    </item>
   </layout>
  </widget>

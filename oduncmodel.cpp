@@ -29,7 +29,13 @@ QVariant OduncModel::data(const QModelIndex &index, int role) const {
         case 2: return QString::fromStdString(kayit.isbn);
         case 3: return QString::fromStdString(kayit.odunc_tarihi);
         case 4: return QString::fromStdString(kayit.iade_tarihi.value_or("---"));
-        case 5: return QString::fromStdString(durumYazisi(kayit.durum));
+        case 5: {
+            switch (kayit.durum) {
+            case OduncDurum::Oduncte: return QString("Oduncte");
+            case OduncDurum::IadeEdildi: return QString("Iade Edildi");
+            case OduncDurum::Gecikmis: return QString("Gecikmis");
+            }
+        }
         }
     }
 
@@ -63,9 +69,9 @@ QVariant OduncModel::headerData(int section, Qt::Orientation orientation, int ro
     return QVariant();
 }
 
-void OduncModel::setKayitlar(const std::vector<OduncKaydi>& yeniKayitlar) {
+void OduncModel::setOduncler(const std::vector<OduncKaydi>& kayitlar) {
     beginResetModel();
-    m_kayitlar = yeniKayitlar;
+    m_kayitlar = kayitlar;
     endResetModel();
 }
 

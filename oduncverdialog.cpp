@@ -1,13 +1,27 @@
 #include "oduncverdialog.h"
 #include "ui_oduncverdialog.h"
 #include <QMessageBox>
+#include <QDate>
 
-OduncVerDialog::OduncVerDialog(QWidget *parent) :
+OduncVerDialog::OduncVerDialog(const std::vector<Uye>& uyeler, const std::vector<Kitap>& kitaplar, QWidget *parent) :
     QDialog(parent),
     ui(new Ui::OduncVerDialog)
 {
     ui->setupUi(this);
-    this->setWindowTitle("Yeni Ödünç İşlemi");
+
+    ui->dateOdunc->setDate(QDate::currentDate());
+
+    for (const auto& uye : uyeler) {
+        QString uyeMetni = QString::number(uye.uye_no) + " - " + QString::fromStdString(uye.isim) + " " + QString::fromStdString(uye.soyisim);
+        ui->cmbUye->addItem(uyeMetni, uye.uye_no);
+    }
+
+    for (const auto& kitap : kitaplar) {
+        if (kitap.kopya_sayisi > 0) {
+            QString kitapMetni = QString::fromStdString(kitap.baslik) + " (" + QString::fromStdString(kitap.isbn) + ")";
+            ui->cmbKitap->addItem(kitapMetni, QString::fromStdString(kitap.isbn));
+        }
+    }
 }
 
 OduncVerDialog::~OduncVerDialog()
@@ -17,32 +31,27 @@ OduncVerDialog::~OduncVerDialog()
 
 void OduncVerDialog::on_btnKaydet_clicked()
 {
-    if(ui->txtKayitId->text().isEmpty() || ui->txtUyeNo->text().isEmpty() ||
-        ui->txtIsbn->text().isEmpty() || ui->txtOduncTarihi->text().isEmpty()) {
-        QMessageBox::warning(this, "Hata", "Lütfen tüm alanları doldurunuz!");
+    if (ui->cmbUye->currentIndex() == -1 || ui->cmbKitap->currentIndex() == -1) {
+        QMessageBox::warning(this, "Eksik Secim", "Lutfen uye ve kitap secimini eksiksiz yapin!");
         return;
     }
-    accept();
-}
 
-void OduncVerDialog::on_btnIptal_clicked()
-{
-    reject();
+    int secilenUyeNo = ui->cmbUye->currentData().toInt();
+    QString secilenIsbn = ui->cmbKitap->currentData().toString();
+    QString oduncTarihi = ui->dateOdunc->date().toString("yyyy-MM-dd");
+
+    yeniKayit.kayit_id = QDate::currentDate().toString("hhmmss").toInt();
+    yeniKayit.uye_no = secilenUyeNo;
+    yeniKayit.isbn = secilenIsbn.toStdString();
+    yeniKayit.odunc_tarihi = oduncTarihi.toStdString();
+    yeniKayit.iade_tarihi = std::nullopt;
+    yeniKayit.durum = OduncDurum::Oduncte;
+
+    accept();
 }
 
 OduncKaydi OduncVerDialog::getOduncKaydi() const
 {
-    OduncKaydi ok;
-    ok.kayit_id = ui->txtKayitId->text().toInt();
-    ok.uye_no = ui->txtUyeNo->text().toInt();
-
-    std::string isbnStr = ui->txtIsbn->text().toStdString();
-    std::string tarihStr = ui->txtOduncTarihi->text().toStdString();
-    ok.isbn = ui->txtIsbn->text().toStdString();
-    ok.odunc_tarihi = ui->txtOduncTarihi->text().toStdString();
-    ok.iade_tarihi = std::nullopt;
-    ok.durum = OduncDurum::Oduncte;
-
-    return ok;
+    return yeniKayit;
 }
 

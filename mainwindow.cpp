@@ -46,11 +46,12 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     for(auto const& [id, veri] : tumKayitlarMap) {
         liste.push_back(veri);
     }
-    oduncModel->setKayitlar(liste);
+    oduncModel->setOduncler(liste);
 
     try {
         kitap_deposu.yukle("kitaplar.dat");
         uye_deposu.yukle("uyeler.dat");
+        odunc_deposu.yukle("oduncler.dat");
     }
     catch (const std::exception& e) {
         QMessageBox::warning(this, "Veri Yukleme Hatasi", "Eski veriler yuklenirken bir sorun olustu, temiz veri tabani ile baslatiliyor.");
@@ -120,19 +121,25 @@ void MainWindow::on_btnKitapEkle_2_clicked()
 
 void MainWindow::on_btnOduncVer_clicked()
 {
-    OduncVerDialog dialog(this);
+    auto tumUyelerMap = uye_deposu.tumunu_al();
+    std::vector<Uye> uyelerListesi;
+    for (auto const& [key, val] : tumUyelerMap) {
+        uyelerListesi.push_back(val);
+    }
+
+    auto tumKitaplarMap = kitap_deposu.tumunu_al();
+    std::vector<Kitap> kitaplarListesi;
+    for (auto const& [key, val] : tumKitaplarMap) {
+        kitaplarListesi.push_back(val);
+    }
+
+    OduncVerDialog dialog(uyelerListesi, kitaplarListesi, this);
     if (dialog.exec() == QDialog::Accepted) {
         OduncKaydi yeniKayit = dialog.getOduncKaydi();
 
-        auto uyeKontrol = uye_deposu.bul(yeniKayit.uye_no);
-        if (!uyeKontrol.has_value()) {
-            QMessageBox::critical(this, "Hata", "Girilen uye numarasina ait bir uye bulunamadi!");
-            return;
-        }
-
         auto kitapKontrol = kitap_deposu.bul(yeniKayit.isbn);
         if (!kitapKontrol.has_value()) {
-            QMessageBox::critical(this, "Hata", "Girilen ISBN numarasina ait bir kitap bulunamadi!");
+            QMessageBox::critical(this, "Hata", "Secilen kitap bulunamadi!");
             return;
         }
 
@@ -142,25 +149,34 @@ void MainWindow::on_btnOduncVer_clicked()
             return;
         }
 
-        guncellenecekKitap.kopya_sayisi--;
-        kitap_deposu.ekle(guncellenecekKitap.isbn, guncellenecekKitap);
+        try {
+            guncellenecekKitap.kopya_sayisi--;
+            kitap_deposu.ekle(guncellenecekKitap.isbn, guncellenecekKitap);
+            kitap_deposu.kaydet("kitaplar.dat");
 
-        auto tumKitaplarMap = kitap_deposu.tumunu_al();
-        std::vector<Kitap> kitapListesi;
-        for(auto const& [key, val] : tumKitaplarMap) {
-            kitapListesi.push_back(val);
+            auto yenilenenKitaplar = kitap_deposu.tumunu_al();
+            std::vector<Kitap> guncelKitapListesi;
+            for (auto const& [key, val] : yenilenenKitaplar) {
+                guncelKitapListesi.push_back(val);
+            }
+            kitapModel->setKitaplar(guncelKitapListesi);
+
+            odunc_deposu.ekle(yeniKayit.kayit_id, yeniKayit);
+            odunc_deposu.kaydet("oduncler.dat");
+
+            auto yenilenenOduncler = odunc_deposu.tumunu_al();
+            std::vector<OduncKaydi> guncelOduncListesi;
+            for (auto const& [key, val] : yenilenenOduncler) {
+                guncelOduncListesi.push_back(val);
+            }
+            oduncModel->setOduncler(guncelOduncListesi);
+
+            logYaz("SISTEM: " + std::to_string(yeniKayit.uye_no) + " nolu uyeye kitap odunc verildi.");
         }
-        kitapModel->setKitaplar(kitapListesi);
-
-        odunc_deposu.ekle(yeniKayit.kayit_id, yeniKayit);
-
-        auto tumKayitlarMap = odunc_deposu.tumunu_al();
-        std::vector<OduncKaydi> liste;
-        for(auto const& [id, veri] : tumKayitlarMap) {
-            liste.push_back(veri);
+        catch (const std::exception& e) {
+            QMessageBox::critical(this, "Hata", "Odunc islemi sirasinda hata olustu: " + QString::fromUtf8(e.what()));
+            logYaz("HATA: Odunc verme basarisiz: " + std::string(e.what()));
         }
-        oduncModel->setKayitlar(liste);
-        logYaz("KITAP ODUNC VERILDI - Kayit ID: " + std::to_string(yeniKayit.kayit_id) + ", Uye No: " + std::to_string(yeniKayit.uye_no) + ", ISBN: " + yeniKayit.isbn);
     }
 }
 
@@ -196,7 +212,7 @@ void MainWindow::on_btnIadeAl_clicked()
     for(auto const& [id, veri] : guncelKayitlarMap) {
         guncelListe.push_back(veri);
     }
-    oduncModel->setKayitlar(guncelListe);
+    oduncModel->setOduncler(liste);
 
     auto guncelKitaplarMap = kitap_deposu.tumunu_al();
     std::vector<Kitap> guncelKitapListesi;

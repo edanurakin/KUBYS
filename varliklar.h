@@ -3,10 +3,12 @@
 
 #include <string>
 #include <optional>
-#include <vector>
 
-enum class OduncDurum { Oduncte, IadeEdildi, Gecikmis };
-std::string durumYazisi(OduncDurum durum);
+enum class OduncDurum {
+    Oduncte,
+    IadeEdildi,
+    Gecikmis
+};
 
 struct Kitap {
     std::string isbn;
@@ -31,18 +33,7 @@ struct OduncKaydi {
     std::string isbn;
     std::string odunc_tarihi;
     std::optional<std::string> iade_tarihi;
-    OduncDurum durum;
+    OduncDurum durum{OduncDurum::Oduncte};
 };
-
-struct Emanet {
-    int emanet_no;
-    int uye_no;
-    std::string isbn;
-    std::string alma_tarihi;
-    std::string iade_tarihi;
-    bool iade_edildi_mi;
-};
-
-std::string durumYazisi(OduncDurum durum);
 
 #endif
