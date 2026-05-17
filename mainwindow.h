@@ -31,6 +31,12 @@ private slots:
 
     void on_btnOduncVer_clicked();
 
+    void on_btnIadeAl_clicked();
+
+    void on_txtKitapAra_textChanged(const QString &arg1);
+
+    void on_txtUyeAra_textChanged(const QString &arg1);
+
 private:
     Ui::MainWindow *ui;
 
@@ -41,5 +47,6 @@ private:
     Depo<int, Uye> uye_deposu;
     Depo<int, OduncKaydi> odunc_deposu;
     Depo<std::string, Kitap> kitap_deposu;
+    void logYaz(const std::string &mesaj);
 };
 #endif

@@ -5,6 +5,9 @@
 #include "uyeekledialog.h"
 #include "oduncverdialog.h"
 #include <QMessageBox>
+#include <fstream>
+#include <chrono>
+#include <iomanip>
 
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWindow) {
     ui->setupUi(this);
@@ -65,6 +68,7 @@ void MainWindow::on_btnUyeEkle_clicked()
         }
 
         uyeModel->setUyeler(uyeListesi);
+        logYaz("YENI UYE EKLENDI - Uye No: " + std::to_string(yeniUye.uye_no) + ", Isim: " + yeniUye.isim + " " + yeniUye.soyisim);
     }
 }
 
@@ -83,6 +87,7 @@ void MainWindow::on_btnKitapEkle_2_clicked()
         }
 
         kitapModel->setKitaplar(kitapListesi);
+        logYaz("YENI KITAP EKLENDI - ISBN: " + yeniKitap.isbn + ", Baslik: " + yeniKitap.baslik);
     }
 }
 
@@ -128,5 +133,112 @@ void MainWindow::on_btnOduncVer_clicked()
             liste.push_back(veri);
         }
         oduncModel->setKayitlar(liste);
+        logYaz("KITAP ODUNC VERILDI - Kayit ID: " + std::to_string(yeniKayit.kayit_id) + ", Uye No: " + std::to_string(yeniKayit.uye_no) + ", ISBN: " + yeniKayit.isbn);
+    }
+}
+void MainWindow::on_btnIadeAl_clicked()
+{
+    QModelIndex index = ui->viewEmanetler->currentIndex();
+    if (!index.isValid()) {
+        QMessageBox::warning(this, "Uyarı", "Lütfen iade alınacak ödünç kaydını tablodan seçiniz!");
+        return;
+    }
+
+    int secilenSatir = index.row();
+
+    auto tumKayitlarMap = odunc_deposu.tumunu_al();
+    std::vector<OduncKaydi> liste;
+    for(auto const& [id, veri] : tumKayitlarMap) {
+        liste.push_back(veri);
+    }
+
+    OduncKaydi secilenKayit = liste[secilenSatir];
+
+    auto kitapKontrol = kitap_deposu.bul(secilenKayit.isbn);
+    if (kitapKontrol.has_value()) {
+        Kitap guncellenecekKitap = kitapKontrol.value();
+        guncellenecekKitap.kopya_sayisi++;
+        kitap_deposu.ekle(guncellenecekKitap.isbn, guncellenecekKitap);
+    }
+
+    odunc_deposu.sil(secilenKayit.kayit_id);
+
+    auto guncelKayitlarMap = odunc_deposu.tumunu_al();
+    std::vector<OduncKaydi> guncelListe;
+    for(auto const& [id, veri] : guncelKayitlarMap) {
+        guncelListe.push_back(veri);
+    }
+    oduncModel->setKayitlar(guncelListe);
+
+    auto guncelKitaplarMap = kitap_deposu.tumunu_al();
+    std::vector<Kitap> guncelKitapListesi;
+    for(auto const& [key, val] : guncelKitaplarMap) {
+        guncelKitapListesi.push_back(val);
+    }
+    kitapModel->setKitaplar(guncelKitapListesi);
+
+    QMessageBox::information(this, "Başarılı", "Kitap başarıyla iade alındı ve stok güncellendi!");
+    logYaz("KITAP IADE ALINDI - Kayit ID: " + std::to_string(secilenKayit.kayit_id) + ", ISBN: " + secilenKayit.isbn);
+}
+
+
+void MainWindow::on_txtKitapAra_textChanged(const QString &arg1)
+{
+    std::string arananMetin = arg1.toLower().toStdString();
+    auto tumKitaplarMap = kitap_deposu.tumunu_al();
+    std::vector<Kitap> filtrelenmisListe;
+
+    for(auto const& [key, val] : tumKitaplarMap) {
+        std::string kitapAdi = val.baslik;
+        std::string yazarAdi = val.yazar;
+
+        std::transform(kitapAdi.begin(), kitapAdi.end(), kitapAdi.begin(), ::tolower);
+        std::transform(yazarAdi.begin(), yazarAdi.end(), yazarAdi.begin(), ::tolower);
+
+        if (kitapAdi.find(arananMetin) != std::string::npos ||
+            yazarAdi.find(arananMetin) != std::string::npos)
+        {
+            filtrelenmisListe.push_back(val);
+        }
+    }
+
+    kitapModel->setKitaplar(filtrelenmisListe);
+}
+
+
+void MainWindow::on_txtUyeAra_textChanged(const QString &arg1)
+{
+    std::string arananMetin = arg1.toLower().toStdString();
+    auto tumUyelerMap = uye_deposu.tumunu_al();
+    std::vector<Uye> filtrelenmisListe;
+
+    for(auto const& [key, val] : tumUyelerMap) {
+        std::string isim = val.isim;
+        std::string soyisim = val.soyisim;
+
+        std::transform(isim.begin(), isim.end(), isim.begin(), ::tolower);
+        std::transform(soyisim.begin(), soyisim.end(), soyisim.begin(), ::tolower);
+
+        if (isim.find(arananMetin) != std::string::npos ||
+            soyisim.find(arananMetin) != std::string::npos)
+        {
+            filtrelenmisListe.push_back(val);
+        }
+    }
+
+    uyeModel->setUyeler(filtrelenmisListe);
+}
+
+void MainWindow::logYaz(const std::string &mesaj)
+{
+    std::ofstream logDosyasi("islem_gunlugu.txt", std::ios::app);
+    if (logDosyasi.is_open()) {
+        auto simdi = std::chrono::system_clock::now();
+        auto zaman_t = std::chrono::system_clock::to_time_t(simdi);
+        std::time_t t = std::chrono::system_clock::to_time_t(simdi);
+
+        logDosyasi << std::put_time(std::localtime(&t), "[%Y-%m-%d %H:%M:%S] ")
+                   << mesaj << std::endl;
+        logDosyasi.close();
     }
 }
