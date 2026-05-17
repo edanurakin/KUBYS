@@ -12,6 +12,9 @@
 #include "kitapyukleyici.h"
 #include <sstream>
 #include <algorithm>
+#include <QTcpSocket>
+#include <QJsonObject>
+#include <QJsonDocument>
 
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWindow) {
     ui->setupUi(this);
@@ -137,45 +140,61 @@ void MainWindow::on_btnOduncVer_clicked()
     if (dialog.exec() == QDialog::Accepted) {
         OduncKaydi yeniKayit = dialog.getOduncKaydi();
 
-        auto kitapKontrol = kitap_deposu.bul(yeniKayit.isbn);
-        if (!kitapKontrol.has_value()) {
-            QMessageBox::critical(this, "Hata", "Secilen kitap bulunamadi!");
+        QTcpSocket socket;
+        socket.connectToHost("127.0.0.1", 12345);
+
+        if (!socket.waitForConnected(3000)) {
+            QMessageBox::critical(this, "Bağlantı Hatası", "Merkezi sunucuya bağlanılamadı!");
             return;
         }
 
-        Kitap guncellenecekKitap = kitapKontrol.value();
-        if (guncellenecekKitap.kopya_sayisi <= 0) {
-            QMessageBox::warning(this, "Hata", "Bu kitaptan kutuphanede kalmamistir!");
+        QJsonObject istek;
+        istek["tip"] = "odunc_al";
+        istek["uye_no"] = yeniKayit.uye_no;
+        istek["isbn"] = QString::fromStdString(yeniKayit.isbn);
+
+        QJsonDocument doc(istek);
+        socket.write(doc.toJson(QJsonDocument::Compact));
+        socket.flush();
+
+        if (!socket.waitForReadyRead(3000)) {
+            QMessageBox::critical(this, "Hata", "Sunucudan yanıt alınamadı!");
             return;
         }
 
-        try {
-            guncellenecekKitap.kopya_sayisi--;
-            kitap_deposu.ekle(guncellenecekKitap.isbn, guncellenecekKitap);
-            kitap_deposu.kaydet("kitaplar.dat");
+        QByteArray hamYanit = socket.readAll();
+        QJsonDocument yanitDoc = QJsonDocument::fromJson(hamYanit);
+        QJsonObject yanit = yanitDoc.object();
 
-            auto yenilenenKitaplar = kitap_deposu.tumunu_al();
-            std::vector<Kitap> guncelKitapListesi;
-            for (auto const& [key, val] : yenilenenKitaplar) {
-                guncelKitapListesi.push_back(val);
+        if (yanit["durum"].toString() == "basarili") {
+            int gelenKayitId = yanit["kayit_id"].toInt();
+
+            try {
+                kitap_deposu.yukle("kitaplar.dat");
+                auto yenilenenKitaplar = kitap_deposu.tumunu_al();
+                std::vector<Kitap> guncelKitapListesi;
+                for (auto const& [key, val] : yenilenenKitaplar) {
+                    guncelKitapListesi.push_back(val);
+                }
+                kitapModel->setKitaplar(guncelKitapListesi);
+
+                odunc_deposu.yukle("oduncler.dat");
+                auto yenilenenOduncler = odunc_deposu.tumunu_al();
+                std::vector<OduncKaydi> guncelOduncListesi;
+                for (auto const& [key, val] : yenilenenOduncler) {
+                    guncelOduncListesi.push_back(val);
+                }
+                oduncModel->setOduncler(guncelOduncListesi);
+
+                QMessageBox::information(this, "Başarılı", "Ödünç işlemi sunucu tarafından onaylandı. Kayıt ID: " + QString::number(gelenKayitId));
+                logYaz("SISTEM: Sunucu üzerinden ödünç işlemi onaylandı. Kayıt ID: " + std::to_string(gelenKayitId));
             }
-            kitapModel->setKitaplar(guncelKitapListesi);
-
-            odunc_deposu.ekle(yeniKayit.kayit_id, yeniKayit);
-            odunc_deposu.kaydet("oduncler.dat");
-
-            auto yenilenenOduncler = odunc_deposu.tumunu_al();
-            std::vector<OduncKaydi> guncelOduncListesi;
-            for (auto const& [key, val] : yenilenenOduncler) {
-                guncelOduncListesi.push_back(val);
+            catch (const std::exception& e) {
+                QMessageBox::critical(this, "Hata", "Arayüz güncellenirken hata oluştu: " + QString::fromUtf8(e.what()));
             }
-            oduncModel->setOduncler(guncelOduncListesi);
-
-            logYaz("SISTEM: " + std::to_string(yeniKayit.uye_no) + " nolu uyeye kitap odunc verildi.");
-        }
-        catch (const std::exception& e) {
-            QMessageBox::critical(this, "Hata", "Odunc islemi sirasinda hata olustu: " + QString::fromUtf8(e.what()));
-            logYaz("HATA: Odunc verme basarisiz: " + std::string(e.what()));
+        } else {
+            QString hataMesaji = yanit["mesaj"].toString();
+            QMessageBox::warning(this, "İşlem Reddedildi", "Sunucu hatası: " + hataMesaji);
         }
     }
 }

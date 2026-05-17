@@ -1,55 +1,43 @@
-cmake_minimum_required(VERSION 3.19)
-project(KUBYS LANGUAGES CXX)
-set(CMAKE_AUTOUIC ON)
-set(CMAKE_AUTOMOC ON)
-set(CMAKE_AUTORCC ON)
+cmake_minimum_required(VERSION 3.20)
+
+project(KUBYS VERSION 1.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-find_package(Qt6 REQUIRED COMPONENTS Widgets)
+set(CMAKE_AUTOMOC ON)
+set(CMAKE_AUTORCC ON)
+set(CMAKE_AUTOUIC ON)
 
+find_package(Qt6 REQUIRED COMPONENTS Widgets Network)
 
-qt_add_executable(KUBYS
+include_directories(.)
+
+set(COMMON_SOURCES
+    kitapmodel.cpp
+    uyemodel.cpp
+    oduncmodel.cpp
+    kitapyukleyici.cpp
+)
+
+set(CLIENT_SOURCES
     main.cpp
     mainwindow.cpp
-    mainwindow.h
-    mainwindow.ui
-    varliklar.h
-    depo.h
-    kitapekledialog.h
     kitapekledialog.cpp
-    kitapekledialog.ui
-    kitapmodel.h
-    kitapmodel.cpp
-    uyemodel.h
-    uyemodel.cpp
-    uyeekledialog.h
     uyeekledialog.cpp
-    uyeekledialog.ui
-    oduncmodel.h oduncmodel.cpp
-    oduncverdialog.h oduncverdialog.cpp oduncverdialog.ui
-    .gitignore
-    kitapyukleyici.h kitapyukleyici.cpp
+    oduncverdialog.cpp
     kaynaklar.qrc
-
+    ${COMMON_SOURCES}
 )
 
-target_link_libraries(KUBYS
-    PRIVATE
-        Qt::Core
-        Qt::Widgets
+add_executable(KUBYS ${CLIENT_SOURCES})
+target_link_libraries(KUBYS PRIVATE Qt6::Widgets Qt6::Network)
+
+set(SERVER_SOURCES
+    server_main.cpp
+    ${COMMON_SOURCES}
 )
 
-install(TARGETS KUBYS
-    BUNDLE  DESTINATION .
-    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-)
-
-qt_generate_deploy_app_script(
-    TARGET KUBYS
-    OUTPUT_SCRIPT deploy_script
-    NO_UNSUPPORTED_PLATFORM_ERROR
-)
-install(SCRIPT ${deploy_script})
+add_executable(KUBYS_Server ${SERVER_SOURCES})
+set_target_properties(KUBYS_Server PROPERTIES WIN32_EXECUTABLE FALSE)
+target_link_libraries(KUBYS_Server PRIVATE Qt6::Network Qt6::Widgets)
