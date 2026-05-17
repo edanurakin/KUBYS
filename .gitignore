@@ -1,0 +1,11 @@
+# Qt Creator geçici build/derleme klasörleri
+build*/
+*.CMakeLists.txt.user
+.cmake/
+
+# Yerel test veri tabanı dosyaları
+*.dat
+
+# Sistem dosyaları
+.DS_Store
+Thumbs.db
