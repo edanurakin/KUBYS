@@ -18,6 +18,14 @@ public:
     void setKayitlar(const std::vector<OduncKaydi>& yeniKayitlar);
     void setOduncler(const std::vector<OduncKaydi>& kayitlar);
 
+    // HATA ÇÖZÜMÜ: Seçili satırdaki kaydın ID'sini döndüren fonksiyon eklendi
+    int getKayitIdAt(int row) const {
+        if (row >= 0 && row < static_cast<int>(m_kayitlar.size())) {
+            return m_kayitlar[row].kayit_id;
+        }
+        return -1;
+    }
+
 private:
     std::vector<OduncKaydi> m_kayitlar;
 };

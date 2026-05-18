@@ -20,7 +20,7 @@
       <property name="currentIndex">
        <number>0</number>
       </property>
-      <widget class="QWidget" name="btnKitapEkle">
+      <widget class="QWidget" name="widget_2">
        <attribute name="title">
         <string>Kitaplar</string>
        </attribute>
@@ -36,7 +36,7 @@
          <widget class="QTableView" name="viewKitaplar"/>
         </item>
         <item>
-         <widget class="QPushButton" name="btnKitapEkle_2">
+         <widget class="QPushButton" name="btnKitapEkle">
           <property name="text">
            <string>Yeni Kitap Kaydet</string>
           </property>
@@ -65,6 +65,9 @@
            <string>Aktarımı İptal Et</string>
           </property>
          </widget>
+        </item>
+        <item>
+         <widget class="QPlainTextEdit" name="txtLog"/>
         </item>
        </layout>
       </widget>

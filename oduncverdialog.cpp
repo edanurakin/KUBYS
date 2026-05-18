@@ -32,19 +32,15 @@ OduncVerDialog::~OduncVerDialog()
 void OduncVerDialog::on_btnKaydet_clicked()
 {
     if (ui->cmbUye->currentIndex() == -1 || ui->cmbKitap->currentIndex() == -1) {
-        QMessageBox::warning(this, "Eksik Secim", "Lutfen uye ve kitap secimini eksiksiz yapin!");
+        QMessageBox::warning(this, "Eksik Seçim", "Lütfen üye ve kitap seçimini eksiksiz yapın.");
         return;
     }
 
     int secilenUyeNo = ui->cmbUye->currentData().toInt();
     QString secilenIsbn = ui->cmbKitap->currentData().toString();
-    QString oduncTarihi = ui->dateOdunc->date().toString("yyyy-MM-dd");
 
-    yeniKayit.kayit_id = QDate::currentDate().toString("hhmmss").toInt();
     yeniKayit.uye_no = secilenUyeNo;
     yeniKayit.isbn = secilenIsbn.toStdString();
-    yeniKayit.odunc_tarihi = oduncTarihi.toStdString();
-    yeniKayit.iade_tarihi = std::nullopt;
     yeniKayit.durum = OduncDurum::Oduncte;
 
     accept();

@@ -1,19 +1,15 @@
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
-#include <QStandardItemModel>
+
 #include <QMainWindow>
 #include "depo.h"
 #include "varliklar.h"
 #include "kitapmodel.h"
 #include "uyemodel.h"
 #include "oduncmodel.h"
-#include <mutex>
-#include "kitapyukleyici.h"
 
 QT_BEGIN_NAMESPACE
-namespace Ui {
-class MainWindow;
-}
+namespace Ui { class MainWindow; }
 QT_END_NAMESPACE
 
 class MainWindow : public QMainWindow
@@ -21,23 +17,20 @@ class MainWindow : public QMainWindow
     Q_OBJECT
 
 public:
-    explicit MainWindow(QWidget *parent = nullptr);
-    ~MainWindow() override;
+    MainWindow(QWidget *parent = nullptr);
+    ~MainWindow();
 
 private slots:
-    //void on_btnKitapEkle_clicked();
+    // Listeleme Butonlarının Tetikleyicileri (Slots)
+    void on_btnKitapListele_clicked();
+    void on_btnUyeListele_clicked();
+    void on_btnOduncListele_clicked();
 
+    // İşlem ve Ekleme Butonlarının Tetikleyicileri (Slots)
+    void on_btnKitapEkle_clicked();
     void on_btnUyeEkle_clicked();
-
-    void on_btnKitapEkle_2_clicked();
-
     void on_btnOduncVer_clicked();
-
     void on_btnIadeAl_clicked();
-
-    void on_txtKitapAra_textChanged(const QString &arg1);
-
-    void on_txtUyeAra_textChanged(const QString &arg1);
 
     void on_btnTopluKitapEkle_clicked();
 
@@ -46,16 +39,18 @@ private slots:
 private:
     Ui::MainWindow *ui;
 
+    // Şablon Sınıfı (Template) Kullanan Veri Depoları
+    Depo<std::string, Kitap> kitap_deposu;
+    Depo<int, Uye> uye_deposu;
+    Depo<int, OduncKaydi> odunc_deposu;
+
+    // Model/View Mimarisi İçin Model Nesneleri
     KitapModel *kitapModel;
     UyeModel *uyeModel;
     OduncModel *oduncModel;
 
-    Depo<int, Uye> uye_deposu;
-    Depo<int, OduncKaydi> odunc_deposu;
-    Depo<std::string, Kitap> kitap_deposu;
-    void logYaz(const std::string &mesaj);
-    std::mutex kitapMutex;
-    KitapYukleyici* aktifYukleyici = nullptr;
-
+    // Arayüze Durum Raporlamak İçin Yardımcı Fonksiyon
+    void logYaz(const std::string& mesaj);
 };
-#endif
+
+#endif // MAINWINDOW_H

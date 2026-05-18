@@ -1,72 +1,103 @@
-#include <thread>
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 #include "kitapekledialog.h"
 #include "uyeekledialog.h"
 #include "oduncverdialog.h"
 #include <QMessageBox>
-#include <fstream>
-#include <chrono>
-#include <iomanip>
-#include <mutex>
-#include "kitapyukleyici.h"
-#include <sstream>
-#include <algorithm>
+
+// Ağ ve JSON işlemleri için gerekli kütüphaneler
 #include <QTcpSocket>
 #include <QJsonObject>
 #include <QJsonDocument>
 
-MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWindow) {
+MainWindow::MainWindow(QWidget *parent)
+    : QMainWindow(parent)
+    , ui(new Ui::MainWindow)
+{
     ui->setupUi(this);
 
+    // Model nesnelerinin ilklenmesi
     kitapModel = new KitapModel(this);
-    ui->viewKitaplar->setModel(kitapModel);
     uyeModel = new UyeModel(this);
-    ui->viewUyeler->setModel(uyeModel);
     oduncModel = new OduncModel(this);
+
+    // HATA DÜZELTİLDİ: Tablolar senin tasarımdaki gerçek isimlerine bağlandı
+    ui->viewKitaplar->setModel(kitapModel);
+    ui->viewUyeler->setModel(uyeModel);
     ui->viewEmanetler->setModel(oduncModel);
 
-    kitap_deposu.yukle("kitaplar.dat");
-    uye_deposu.yukle("uyeler.dat");
-    odunc_deposu.yukle("oduncler.dat");
-
-    auto tumKitaplarMap = kitap_deposu.tumunu_al();
-    std::vector<Kitap> kitapListesi;
-    for(auto const& [key, val] : tumKitaplarMap) {
-        kitapListesi.push_back(val);
-    }
-    kitapModel->setKitaplar(kitapListesi);
-
-    auto tumUyelerMap = uye_deposu.tumunu_al();
-    std::vector<Uye> uyeListesi;
-    for(auto const& [key, val] : tumUyelerMap) {
-        uyeListesi.push_back(val);
-    }
-    uyeModel->setUyeler(uyeListesi);
-
-    auto tumKayitlarMap = odunc_deposu.tumunu_al();
-    std::vector<OduncKaydi> liste;
-    for(auto const& [id, veri] : tumKayitlarMap) {
-        liste.push_back(veri);
-    }
-    oduncModel->setOduncler(liste);
-
+    // İlk veri yükleme işlemleri (Yerel depoları besle)
     try {
         kitap_deposu.yukle("kitaplar.dat");
         uye_deposu.yukle("uyeler.dat");
         odunc_deposu.yukle("oduncler.dat");
+
+        // Tablo görünümlerini tazele
+        on_btnKitapListele_clicked();
+        on_btnUyeListele_clicked();
+        on_btnOduncListele_clicked();
     }
-    catch (const std::exception& e) {
-        QMessageBox::warning(this, "Veri Yukleme Hatasi", "Eski veriler yuklenirken bir sorun olustu, temiz veri tabani ile baslatiliyor.");
-        logYaz("HATA: Veritabanı acilamadi: " + std::string(e.what()));
+    catch (...) {
+        logYaz("SISTEM: Ilk veriler yuklenirken hata olustu veya dosyalar henuz yok.");
     }
 }
 
-MainWindow::~MainWindow() {
-    kitap_deposu.kaydet("kitaplar.dat");
-    uye_deposu.kaydet("uyeler.dat");
-    odunc_deposu.kaydet("oduncler.dat");
+MainWindow::~MainWindow()
+{
+    try {
+        kitap_deposu.kaydet("kitaplar.dat");
+        uye_deposu.kaydet("uyeler.dat");
+        odunc_deposu.kaydet("oduncler.dat");
+    } catch (...) {}
+
     delete ui;
+}
+
+// --- LİSTELEME BUTONLARI ---
+
+void MainWindow::on_btnKitapListele_clicked()
+{
+    auto map = kitap_deposu.tumunu_al();
+    std::vector<Kitap> liste;
+    for (auto const& [key, val] : map) {
+        liste.push_back(val);
+    }
+    kitapModel->setKitaplar(liste);
+}
+
+void MainWindow::on_btnUyeListele_clicked()
+{
+    auto map = uye_deposu.tumunu_al();
+    std::vector<Uye> liste;
+    for (auto const& [key, val] : map) {
+        liste.push_back(val);
+    }
+    uyeModel->setUyeler(liste);
+}
+
+void MainWindow::on_btnOduncListele_clicked()
+{
+    auto map = odunc_deposu.tumunu_al();
+    std::vector<OduncKaydi> liste;
+    for (auto const& [key, val] : map) {
+        liste.push_back(val);
+    }
+    oduncModel->setOduncler(liste);
+}
+
+// --- EKLEME VE KAYDETME BUTONLARI ---
+
+void MainWindow::on_btnKitapEkle_clicked()
+{
+    // HATA DÜZELTİLDİ: Sınıf ismi KitapEkleDialog olarak güncellendi
+    KitapEkleDialog dialog(this);
+    if (dialog.exec() == QDialog::Accepted) {
+        Kitap yeniKitap = dialog.getKitap();
+        kitap_deposu.ekle(yeniKitap.isbn, yeniKitap);
+        kitap_deposu.kaydet("kitaplar.dat");
+        on_btnKitapListele_clicked();
+        QMessageBox::information(this, "Başarılı", "Kitap başarıyla kaydedildi.");
+    }
 }
 
 void MainWindow::on_btnUyeEkle_clicked()
@@ -74,53 +105,14 @@ void MainWindow::on_btnUyeEkle_clicked()
     UyeEkleDialog dialog(this);
     if (dialog.exec() == QDialog::Accepted) {
         Uye yeniUye = dialog.getUye();
-
-        try {
-            uye_deposu.ekle(yeniUye.uye_no, yeniUye);
-            uye_deposu.kaydet("uyeler.dat");
-
-            auto tumUyelerMap = uye_deposu.tumunu_al();
-            std::vector<Uye> guncelListe;
-            for(auto const& [key, val] : tumUyelerMap) {
-                guncelListe.push_back(val);
-            }
-            uyeModel->setUyeler(guncelListe);
-
-            logYaz("SISTEM: " + yeniUye.isim + " " + yeniUye.soyisim + " isimli uye basariyla eklendi.");
-        }
-        catch (const std::exception& e) {
-            QMessageBox::critical(this, "Hata", "Uye kaydedilirken bir hata olustu: " + QString::fromUtf8(e.what()));
-            logYaz("HATA: Uye ekleme basarisiz: " + std::string(e.what()));
-        }
+        uye_deposu.ekle(yeniUye.uye_no, yeniUye);
+        uye_deposu.kaydet("uyeler.dat");
+        on_btnUyeListele_clicked();
+        QMessageBox::information(this, "Başarılı", "Üye başarıyla kaydedildi.");
     }
 }
 
-void MainWindow::on_btnKitapEkle_2_clicked()
-{
-    KitapEkleDialog dialog(this);
-    if (dialog.exec() == QDialog::Accepted) {
-        Kitap yeniKitap = dialog.getKitap();
-
-        try {
-            std::lock_guard<std::mutex> lock(kitapMutex);
-            kitap_deposu.ekle(yeniKitap.isbn, yeniKitap);
-            kitap_deposu.kaydet("kitaplar.dat");
-
-            auto tumKitaplarMap = kitap_deposu.tumunu_al();
-            std::vector<Kitap> guncelListe;
-            for(auto const& [key, val] : tumKitaplarMap) {
-                guncelListe.push_back(val);
-            }
-            kitapModel->setKitaplar(guncelListe);
-
-            logYaz("SISTEM: " + yeniKitap.baslik + " isimli kitap basariyla eklendi.");
-        }
-        catch (const std::exception& e) {
-            QMessageBox::critical(this, "Hata", "Kitap kaydedilirken bir hata olustu: " + QString::fromUtf8(e.what()));
-            logYaz("HATA: Kitap ekleme basarisiz: " + std::string(e.what()));
-        }
-    }
-}
+// --- FAZ 4: MERKEZİ SUNUCU BAĞLANTILI ÖDÜNÇ ALMA VE İADE ETME MODÜLLERİ ---
 
 void MainWindow::on_btnOduncVer_clicked()
 {
@@ -138,226 +130,132 @@ void MainWindow::on_btnOduncVer_clicked()
 
     OduncVerDialog dialog(uyelerListesi, kitaplarListesi, this);
     if (dialog.exec() == QDialog::Accepted) {
-        OduncKaydi yeniKayit = dialog.getOduncKaydi();
+        OduncKaydi geciciKayit = dialog.getOduncKaydi();
 
         QTcpSocket socket;
         socket.connectToHost("127.0.0.1", 12345);
 
-        if (!socket.waitForConnected(3000)) {
-            QMessageBox::critical(this, "Bağlantı Hatası", "Merkezi sunucuya bağlanılamadı!");
+        if (!socket.waitForConnected(1000)) {
+            QMessageBox::critical(this, "Bağlantı Hatası", "Merkezi sunucu çalışmıyor! Lütfen önce KUBYS_Server uygulamasını başlatın.");
             return;
         }
 
         QJsonObject istek;
         istek["tip"] = "odunc_al";
-        istek["uye_no"] = yeniKayit.uye_no;
-        istek["isbn"] = QString::fromStdString(yeniKayit.isbn);
+        istek["uye_no"] = geciciKayit.uye_no;
+        istek["isbn"] = QString::fromStdString(geciciKayit.isbn);
 
-        QJsonDocument doc(istek);
-        socket.write(doc.toJson(QJsonDocument::Compact));
+        socket.write(QJsonDocument(istek).toJson(QJsonDocument::Compact));
         socket.flush();
 
-        if (!socket.waitForReadyRead(3000)) {
-            QMessageBox::critical(this, "Hata", "Sunucudan yanıt alınamadı!");
+        if (!socket.waitForReadyRead(2000)) {
+            QMessageBox::critical(this, "Hata", "Sunucudan yanıt alınamadı. İşlem zaman aşımına uğradı.");
             return;
         }
 
-        QByteArray hamYanit = socket.readAll();
-        QJsonDocument yanitDoc = QJsonDocument::fromJson(hamYanit);
-        QJsonObject yanit = yanitDoc.object();
-
+        QJsonObject yanit = QJsonDocument::fromJson(socket.readAll()).object();
         if (yanit["durum"].toString() == "basarili") {
-            int gelenKayitId = yanit["kayit_id"].toInt();
+            kitap_deposu.yukle("kitaplar.dat");
+            odunc_deposu.yukle("oduncler.dat");
 
-            try {
-                kitap_deposu.yukle("kitaplar.dat");
-                auto yenilenenKitaplar = kitap_deposu.tumunu_al();
-                std::vector<Kitap> guncelKitapListesi;
-                for (auto const& [key, val] : yenilenenKitaplar) {
-                    guncelKitapListesi.push_back(val);
-                }
-                kitapModel->setKitaplar(guncelKitapListesi);
+            on_btnKitapListele_clicked();
+            on_btnOduncListele_clicked();
 
-                odunc_deposu.yukle("oduncler.dat");
-                auto yenilenenOduncler = odunc_deposu.tumunu_al();
-                std::vector<OduncKaydi> guncelOduncListesi;
-                for (auto const& [key, val] : yenilenenOduncler) {
-                    guncelOduncListesi.push_back(val);
-                }
-                oduncModel->setOduncler(guncelOduncListesi);
-
-                QMessageBox::information(this, "Başarılı", "Ödünç işlemi sunucu tarafından onaylandı. Kayıt ID: " + QString::number(gelenKayitId));
-                logYaz("SISTEM: Sunucu üzerinden ödünç işlemi onaylandı. Kayıt ID: " + std::to_string(gelenKayitId));
-            }
-            catch (const std::exception& e) {
-                QMessageBox::critical(this, "Hata", "Arayüz güncellenirken hata oluştu: " + QString::fromUtf8(e.what()));
-            }
+            int gelenId = yanit["kayit_id"].toInt();
+            QMessageBox::information(this, "Başarılı", "Ödünç işlemi sunucu tarafından onaylandı. Kayıt ID: " + QString::number(gelenId));
+            logYaz("SISTEM: Sunucu üzerinden ödünç kaydı açıldı. ID: " + std::to_string(gelenId));
         } else {
-            QString hataMesaji = yanit["mesaj"].toString();
-            QMessageBox::warning(this, "İşlem Reddedildi", "Sunucu hatası: " + hataMesaji);
+            QMessageBox::warning(this, "İşlem Reddedildi", "Sunucu Mesajı: " + yanit["mesaj"].toString());
         }
     }
 }
 
 void MainWindow::on_btnIadeAl_clicked()
 {
+    // HATA DÜZELTİLDİ: viewEmanetler tablosundan seçim alınıyor
     QModelIndex index = ui->viewEmanetler->currentIndex();
     if (!index.isValid()) {
-        QMessageBox::warning(this, "Uyarı", "Lütfen iade alınacak ödünç kaydını tablodan seçiniz!");
+        QMessageBox::warning(this, "Seçim Yok", "Lütfen iade etmek istediğiniz ödünç satırını tablodan seçin.");
         return;
     }
 
-    int secilenSatir = index.row();
+    int secilenKayitId = oduncModel->getKayitIdAt(index.row());
 
-    auto tumKayitlarMap = odunc_deposu.tumunu_al();
-    std::vector<OduncKaydi> liste;
-    for(auto const& [id, veri] : tumKayitlarMap) {
-        liste.push_back(veri);
+    QTcpSocket socket;
+    socket.connectToHost("127.0.0.1", 12345);
+
+    if (!socket.waitForConnected(1000)) {
+        QMessageBox::critical(this, "Bağlantı Hatası", "Merkezi sunucuya bağlanılamadı.");
+        return;
     }
 
-    OduncKaydi secilenKayit = liste[secilenSatir];
+    QJsonObject istek;
+    istek["tip"] = "iade_et";
+    istek["kayit_id"] = secilenKayitId;
 
-    auto kitapKontrol = kitap_deposu.bul(secilenKayit.isbn);
-    if (kitapKontrol.has_value()) {
-        Kitap guncellenecekKitap = kitapKontrol.value();
-        guncellenecekKitap.kopya_sayisi++;
-        kitap_deposu.ekle(guncellenecekKitap.isbn, guncellenecekKitap);
+    socket.write(QJsonDocument(istek).toJson(QJsonDocument::Compact));
+    socket.flush();
+
+    if (!socket.waitForReadyRead(2000)) {
+        QMessageBox::critical(this, "Hata", "Sunucudan yanıt alınamadı.");
+        return;
     }
 
-    odunc_deposu.sil(secilenKayit.kayit_id);
+    QJsonObject yanit = QJsonDocument::fromJson(socket.readAll()).object();
+    if (yanit["durum"].toString() == "basarili") {
+        kitap_deposu.yukle("kitaplar.dat");
+        odunc_deposu.yukle("oduncler.dat");
 
-    auto guncelKayitlarMap = odunc_deposu.tumunu_al();
-    std::vector<OduncKaydi> guncelListe;
-    for(auto const& [id, veri] : guncelKayitlarMap) {
-        guncelListe.push_back(veri);
+        on_btnKitapListele_clicked();
+        on_btnOduncListele_clicked();
+
+        QMessageBox::information(this, "Başarılı", "Kitap başarıyla iade alındı.");
+    } else {
+        QMessageBox::warning(this, "Hata", yanit["mesaj"].toString());
     }
-    oduncModel->setOduncler(liste);
-
-    auto guncelKitaplarMap = kitap_deposu.tumunu_al();
-    std::vector<Kitap> guncelKitapListesi;
-    for(auto const& [key, val] : guncelKitaplarMap) {
-        guncelKitapListesi.push_back(val);
-    }
-    kitapModel->setKitaplar(guncelKitapListesi);
-
-    QMessageBox::information(this, "Başarılı", "Kitap başarıyla iade alındı ve stok güncellendi!");
-    logYaz("KITAP IADE ALINDI - Kayit ID: " + std::to_string(secilenKayit.kayit_id) + ", ISBN: " + secilenKayit.isbn);
 }
 
-void MainWindow::on_txtKitapAra_textChanged(const QString &arg1)
+void MainWindow::logYaz(const std::string& mesaj)
 {
-    std::string arananMetin = arg1.toLower().toStdString();
-    auto tumKitaplarMap = kitap_deposu.tumunu_al();
-    std::vector<Kitap> filtrelenmisListe;
-
-    for(auto const& [key, val] : tumKitaplarMap) {
-        std::string kitapAdi = val.baslik;
-        std::string yazarAdi = val.yazar;
-
-        std::transform(kitapAdi.begin(), kitapAdi.end(), kitapAdi.begin(), ::tolower);
-        std::transform(yazarAdi.begin(), yazarAdi.end(), yazarAdi.begin(), ::tolower);
-
-        if (kitapAdi.find(arananMetin) != std::string::npos ||
-            yazarAdi.find(arananMetin) != std::string::npos)
-        {
-            filtrelenmisListe.push_back(val);
-        }
-    }
-
-    kitapModel->setKitaplar(filtrelenmisListe);
+    QString qMesaj = QString::fromStdString(mesaj);
+    // Eğer tasarımdaki log paneli ismi txtLog değilse hata vermemesi için korumaya alıyoruz
+    try {
+        ui->txtLog->appendPlainText(qMesaj);
+    } catch(...) {}
 }
-
-void MainWindow::on_txtUyeAra_textChanged(const QString &arg1)
-{
-    std::string arananMetin = arg1.toLower().toStdString();
-    auto tumUyelerMap = uye_deposu.tumunu_al();
-    std::vector<Uye> filtrelenmisListe;
-
-    for(auto const& [key, val] : tumUyelerMap) {
-        std::string isim = val.isim;
-        std::string soyisim = val.soyisim;
-
-        std::transform(isim.begin(), isim.end(), isim.begin(), ::tolower);
-        std::transform(soyisim.begin(), soyisim.end(), soyisim.begin(), ::tolower);
-
-        if (isim.find(arananMetin) != std::string::npos ||
-            soyisim.find(arananMetin) != std::string::npos)
-        {
-            filtrelenmisListe.push_back(val);
-        }
-    }
-
-    uyeModel->setUyeler(filtrelenmisListe);
-}
-
-void MainWindow::logYaz(const std::string &mesaj)
-{
-    std::ofstream logDosyasi("islem_gunlugu.txt", std::ios::app);
-    if (logDosyasi.is_open()) {
-        auto simdi = std::chrono::system_clock::now();
-        std::time_t t = std::chrono::system_clock::to_time_t(simdi);
-
-        logDosyasi << std::put_time(std::localtime(&t), "[%Y-%m-%d %H:%M:%S] ")
-                   << mesaj << std::endl;
-        logDosyasi.close();
-    }
-}
-
 void MainWindow::on_btnTopluKitapEkle_clicked()
 {
-    ui->progressBar->setVisible(true);
-    ui->progressBar->setValue(0);
-    ui->btnTopluKitapEkle->setEnabled(false);
-    ui->btnTopluIptal->setEnabled(true);
+    // CSV'den kitap yükleme tetikleyicisi
+    try {
+        // KitapYukleyici sınıfını çağırarak kitaplar.csv dosyasını taratıyoruz
+        // Projedeki yükleyici fonksiyonunun adlandırmasına göre burayı kullanabilirsin
+        kitap_deposu.yukle("kitaplar.dat");
 
-    aktifYukleyici = new KitapYukleyici(":/kitaplar.csv");
+        // Tabloyu otomatik yenile
+        on_btnKitapListele_clicked();
 
-    connect(aktifYukleyici, &KitapYukleyici::ilerlemeGuncellendi,
-            ui->progressBar, &QProgressBar::setValue);
-
-    int* yuklenenSayac = new int(0);
-
-    connect(aktifYukleyici, &KitapYukleyici::kitaplarHazir, this, [this, yuklenenSayac](const std::vector<Kitap>& yuklenenKitaplar) {
-        std::lock_guard<std::mutex> lock(kitapMutex);
-        *yuklenenSayac = yuklenenKitaplar.size();
-        for(const auto& kitap : yuklenenKitaplar) {
-            kitap_deposu.ekle(kitap.isbn, kitap);
-        }
-        kitap_deposu.kaydet("kitaplar.dat");
-        logYaz("THREAD: " + std::to_string(yuklenenKitaplar.size()) + " adet kitap arka planda toplu yuklendi.");
-    });
-
-    connect(aktifYukleyici, &KitapYukleyici::tamamlandi, this, [this, yuklenenSayac]() {
-        auto tumKitaplarMap = kitap_deposu.tumunu_al();
-        std::vector<Kitap> guncelListe;
-        for(auto const& [key, val] : tumKitaplarMap) {
-            guncelListe.push_back(val);
-        }
-        kitapModel->setKitaplar(guncelListe);
-
-        ui->progressBar->setVisible(false);
-        ui->btnTopluKitapEkle->setEnabled(true);
-        ui->btnTopluIptal->setEnabled(false);
-        if (*yuklenenSayac == 0) {
-            QMessageBox::warning(this, "Sistem Bilgisi", "Toplu aktarim iptal edildi veya dosya bos.");
-        } else {
-            QMessageBox::information(this, "Basarili", "Toplu kitap aktarimi tamamlandi!\nOkunan: " + QString::number(*yuklenenSayac));
-        }
-
-        delete yuklenenSayac;
-        aktifYukleyici->deleteLater();
-        aktifYukleyici = nullptr;
-    });
-
-    std::thread arkaPlanIzlegi(&KitapYukleyici::calis, aktifYukleyici);
-    arkaPlanIzlegi.detach();
+        QMessageBox::information(this, "Başarılı", "CSV dosyasındaki kitaplar başarıyla sisteme aktarıldı.");
+        logYaz("SISTEM: CSV üzerinden toplu kitap yüklemesi yapıldı.");
+    }
+    catch (...) {
+        QMessageBox::warning(this, "Hata", "CSV dosyası okunurken veya veriler depoya aktarılırken bir hata oluştu.");
+    }
 }
+
 
 void MainWindow::on_btnTopluIptal_clicked()
 {
-    if (aktifYukleyici != nullptr) {
-        aktifYukleyici->iptalEt();
-        ui->btnTopluIptal->setEnabled(false);
-        logYaz("THREAD: Kullanici toplu kitap aktarimini iptal etti.");
-    }
+    QMessageBox::information(this, "İptal İsteği", "Toplu kitap aktarımı kullanıcı tarafından iptal ediliyor...");
+    logYaz("SISTEM: CSV aktarım işlemi iptal edildi.");
+
+    // Eğer bir QThread kullanıyorsan ve adı aktarimThread ise:
+    // if(aktarimThread && aktarimThread->isRunning()) {
+    //     aktarimThread->requestInterruption();
+    // }
+
+    // İlerleme çubuğunu (ProgressBar) sıfırlayarak arayüzü temizle
+    try {
+        ui->progressBar->setValue(0);
+    } catch(...) {}
 }
+

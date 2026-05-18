@@ -20,6 +20,8 @@ public:
 private slots:
     void on_buttonBox_accepted();
 
+    void on_btnKaydet_clicked();
+
 private:
     Ui::KitapEkleDialog *ui;
     Kitap yeniKitap;
